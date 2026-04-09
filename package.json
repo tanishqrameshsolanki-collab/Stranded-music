@@ -1,16 +1,17 @@
 {
   "name": "aether-music",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx --env-file=.env.local server.ts",
-    "start": "node --env-file=.env.local server.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node --env-file=.env.local server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.39.3",
+    "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "framer-motion": "11.0.8",
@@ -25,11 +26,15 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -68,68 +68,6 @@ async function startServer() {
     }
   });
 
-  let spotifyToken = "";
-  let spotifyTokenExpiry = 0;
-
-  async function getSpotifyToken() {
-    if (Date.now() < spotifyTokenExpiry && spotifyToken) {
-      return spotifyToken;
-    }
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-    
-    if (!clientId || !clientSecret) {
-      throw new Error('Spotify credentials missing from .env.local');
-    }
-
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64')
-      },
-      body: 'grant_type=client_credentials'
-    });
-
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error('Failed to fetch Spotify token: ' + err);
-    }
-
-    const data = await response.json();
-    spotifyToken = data.access_token;
-    spotifyTokenExpiry = Date.now() + ((data.expires_in - 60) * 1000);
-    return spotifyToken;
-  }
-
-  app.get("/api/spotify", async (req, res) => {
-    const endpoint = req.query.endpoint as string;
-    if (!endpoint) {
-      return res.status(400).json({ error: "Missing endpoint parameter" });
-    }
-    
-    try {
-      const token = await getSpotifyToken();
-      const url = `https://api.spotify.com/v1${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Spotify API error: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      res.json(data);
-    } catch (error: any) {
-      console.error("Spotify proxy error:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch from Spotify" });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

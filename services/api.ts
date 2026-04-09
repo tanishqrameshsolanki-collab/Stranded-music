@@ -2,14 +2,14 @@
 import { Track, Artist, Album, Playlist, SearchResults, TrackType, Category, AudioSource } from '../types';
 import { MOCK_TRACKS } from '../constants';
 
-// In production (Vercel), API calls go to Railway backend via VITE_API_URL.
-// In development, the local Express server serves both frontend and API on :3000.
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '';
+// API calls are same-origin: in dev they hit the local Express server,
+// in production they hit Vercel Serverless Functions at /api/*
+const API_BASE_URL = '';
 const ITUNES_BASE_URL = 'https://itunes.apple.com';
 
 const fetchItunes = async (url: string) => {
     try {
-        const proxyUrl = `${API_BASE_URL}/api/itunes?url=${encodeURIComponent(url)}`;
+        const proxyUrl = `/api/itunes?url=${encodeURIComponent(url)}`;
         const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error('Proxy response was not ok');
         return await res.json();
@@ -208,7 +208,7 @@ export const musicApi = {
         try {
             // Search YouTube for this track
             const searchQuery = `${track.title} ${track.artist.name} official audio`;
-            const res = await fetch(`${API_BASE_URL}/api/search-youtube?q=${encodeURIComponent(searchQuery)}`);
+            const res = await fetch(`/api/search-youtube?q=${encodeURIComponent(searchQuery)}`);
             const data = await res.json();
             
             if (data.videoId) {

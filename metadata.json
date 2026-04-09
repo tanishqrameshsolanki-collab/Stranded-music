@@ -1,0 +1,7 @@
+{
+  "name": "Aether Music",
+  "description": "A high-fidelity music streaming interface featuring algorithmic curation, classical music taxonomy, and immersive physics-based UI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

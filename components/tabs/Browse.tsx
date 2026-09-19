@@ -1,10 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { Play, ChevronRight } from 'lucide-react';
-import { musicApi } from '../../services/api';
+import { musicApi, isAbortError } from '../../services/api';
 import { Album, Playlist, Category } from '../../types';
+import { useUIStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
 
 const Browse = () => {
+  const setView = useUIStore(s => s.setView);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{ newReleases: Album[], featured: Playlist[], categories: Category[] }>({
       newReleases: [],
@@ -13,17 +16,11 @@ const Browse = () => {
   });
 
   useEffect(() => {
-    const loadData = async () => {
-        try {
-            const result = await musicApi.getHomeData();
-            setData(result);
-        } catch (e) {
-            console.error("Browse fetch failed", e);
-        } finally {
-            setLoading(false);
-        }
-    };
-    loadData();
+    const controller = new AbortController();
+    musicApi.getHomeData(controller.signal)
+      .then(result => { setData(result); setLoading(false); })
+      .catch(e => { if (!isAbortError(e)) { console.error("Browse fetch failed", e); setLoading(false); } });
+    return () => controller.abort();
   }, []);
 
   if (loading) return (
@@ -41,7 +38,7 @@ const Browse = () => {
         <div className="flex overflow-x-auto snap-x no-scrollbar -mx-6 px-6 md:-mx-10 md:px-10 pb-10 space-x-5">
            {data.featured.slice(0, 5).map((playlist, i) => (
              <div key={playlist.id} className="snap-center shrink-0 w-[90%] md:w-[48%] aspect-[16/9] md:aspect-[2.1/1] relative rounded-[12px] overflow-hidden group cursor-pointer shadow-lg border border-white/5">
-                <img src={playlist.coverUrl} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <Artwork src={playlist.coverUrl} size={600} eager={i === 0} alt={playlist.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
                 
                 <div className="absolute bottom-0 left-0 p-6 w-full max-w-lg">
@@ -59,7 +56,7 @@ const Browse = () => {
            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
              {data.categories.length > 0 ? data.categories.map((cat) => (
                <div key={cat.id} className="h-24 md:h-28 rounded-[8px] relative overflow-hidden cursor-pointer group border border-white/5 shadow-sm">
-                  <img src={cat.icon} className="absolute inset-0 w-full h-full object-cover brightness-[0.6] group-hover:brightness-[0.5] transition-all group-hover:scale-105 duration-500" />
+                  <img src={cat.icon} alt={cat.name} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover brightness-[0.6] group-hover:brightness-[0.5] transition-[transform,filter] group-hover:scale-105 duration-500" />
                   <span className="absolute bottom-2 left-3 text-white font-bold text-[16px] tracking-tight">{cat.name}</span>
                </div>
              )) : (
@@ -78,9 +75,9 @@ const Browse = () => {
            <SectionHeader title="New Music" action="See All" />
            <div className="flex space-x-4 overflow-x-auto no-scrollbar -mx-6 px-6 md:-mx-10 md:px-10 pb-4">
               {data.newReleases.map(album => (
-                <div key={album.id} className="w-40 md:w-48 shrink-0 cursor-pointer group">
+                <div key={album.id} onClick={() => setView({ type: 'album', id: album.id })} className="w-40 md:w-48 shrink-0 cursor-pointer group">
                   <div className="relative mb-2 aspect-square rounded-[8px] overflow-hidden bg-[#222] shadow-sm border border-white/5 group-hover:shadow-md transition-shadow">
-                    <img src={album.coverUrl} className="w-full h-full object-cover transition-opacity hover:opacity-80" />
+                    <Artwork src={album.coverUrl} size={192} alt={album.title} className="w-full h-full object-cover transition-opacity hover:opacity-80" />
                   </div>
                   <p className="text-white text-[14px] font-medium truncate leading-tight">{album.title}</p>
                   <p className="text-gray-500 text-[13px] truncate leading-tight mt-0.5">{album.artist.name}</p>
@@ -96,7 +93,7 @@ const Browse = () => {
                {[1,2,3,4].map(i => (
                   <div key={i} className="flex items-center bg-white/5 hover:bg-white/10 transition-colors rounded-[8px] p-3 cursor-pointer group">
                      <div className="w-14 h-14 rounded-[4px] bg-[#333] shrink-0 mr-3 overflow-hidden relative shadow-sm">
-                        <img src={`https://picsum.photos/id/${300+i}/100/100`} className="w-full h-full object-cover" />
+                        <img src={`https://picsum.photos/id/${300+i}/100/100`} alt="" width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                            <Play size={18} fill="white" className="text-white" />
                         </div>

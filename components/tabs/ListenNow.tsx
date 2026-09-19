@@ -4,42 +4,43 @@ import { Play, ChevronRight } from 'lucide-react';
 import { Playlist, Album } from '../../types';
 import { triggerHaptic } from '../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { musicApi } from '../../services/api';
-import { usePlayerStore } from '../../services/store';
+import { musicApi, isAbortError } from '../../services/api';
+import { usePlayerStore, useUIStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
+
+const greetingForHour = (hour: number) => hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
 
 const ListenNow: React.FC = () => {
-  const { playTrack } = usePlayerStore();
+  const playTrack = usePlayerStore(s => s.playTrack);
+  const setView = useUIStore(s => s.setView);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [featured, setFeatured] = useState<Playlist[]>([]);
   const [newReleases, setNewReleases] = useState<Album[]>([]);
-  const [greeting, setGreeting] = useState("Listen Now");
+  const [greeting] = useState(() => greetingForHour(new Date().getHours()));
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good Morning");
-    else if (hour < 18) setGreeting("Good Afternoon");
-    else setGreeting("Good Evening");
-
-    const loadData = async () => {
-       try {
-         const data = await musicApi.getHomeData();
-         setFeatured(data.featured);
-         setNewReleases(data.newReleases);
-       } finally {
-         setLoading(false);
-       }
-    };
-    loadData();
+    const controller = new AbortController();
+    musicApi.getHomeData(controller.signal)
+      .then(data => {
+        setFeatured(data.featured);
+        setNewReleases(data.newReleases);
+        setLoading(false);
+      })
+      .catch(e => { if (!isAbortError(e)) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
-  const handleScroll = () => {
-    if (scrollRef.current) {
-      const scrollY = scrollRef.current.scrollTop;
-      setShowStickyHeader(scrollY > 40);
-    }
-  };
+  // Sticky header toggles via IntersectionObserver instead of a per-frame scroll handler.
+  useEffect(() => {
+    const root = scrollRef.current, target = sentinelRef.current;
+    if (!root || !target) return;
+    const observer = new IntersectionObserver(([entry]) => setShowStickyHeader(!entry.isIntersecting), { root });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loading]);
 
   if (loading) {
     return (
@@ -57,7 +58,7 @@ const ListenNow: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute top-0 left-0 right-0 h-[60px] md:h-[64px] bg-black/80 backdrop-blur-2xl border-b border-white/5 z-20 flex items-center px-8"
+            className="absolute top-0 left-0 right-0 h-[60px] md:h-[64px] bg-black/90 border-b border-white/5 z-20 flex items-center px-8"
           >
             <h1 className="text-[20px] font-bold text-white">{greeting}</h1>
           </motion.div>
@@ -66,10 +67,10 @@ const ListenNow: React.FC = () => {
 
       <div 
         ref={scrollRef} 
-        onScroll={handleScroll}
-        className="h-full overflow-y-auto pb-32 md:pb-10 no-scrollbar scroll-smooth"
+        className="h-full overflow-y-auto pb-32 md:pb-10 no-scrollbar"
       >
-        <div className="pt-12 px-6 md:px-10">
+        <div ref={sentinelRef} className="h-10" aria-hidden="true" />
+        <div className="pt-2 px-6 md:px-10">
           
           <div className="flex justify-between items-end mb-6 border-b border-white/10 pb-4">
              <h1 className="text-[34px] font-bold text-white tracking-tight leading-none">{greeting}</h1>
@@ -94,7 +95,7 @@ const ListenNow: React.FC = () => {
                      </span>
                      <div className="relative aspect-square">
                         <div className="relative z-10 w-full h-full rounded-xl overflow-hidden shadow-sm bg-[#222] border border-white/5 group-active:scale-[0.98] transition-all duration-300">
-                            <img src={playlist.coverUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                            <Artwork src={playlist.coverUrl} size={320} eager={i === 0} alt={playlist.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                             <div className="absolute bottom-4 left-4 right-4">
                                 <h3 className="text-white text-[20px] font-bold leading-tight mb-1 truncate drop-shadow-md tracking-tight">{playlist.title}</h3>
@@ -115,9 +116,9 @@ const ListenNow: React.FC = () => {
              <SectionHeader title="New Releases" action="See All" />
              <div className="flex space-x-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6 md:-mx-10 md:px-10">
                 {newReleases.map((album, idx) => (
-                   <div key={idx} className="shrink-0 w-[150px] md:w-[170px] flex flex-col cursor-pointer group active:opacity-80 transition-opacity">
+                   <div key={`${album.id}-${idx}`} onClick={() => { setView({ type: 'album', id: album.id }); triggerHaptic('light'); }} className="shrink-0 w-[150px] md:w-[170px] flex flex-col cursor-pointer group active:opacity-80 transition-opacity">
                       <div className="aspect-square rounded-[6px] overflow-hidden mb-2 shadow-md bg-[#222] border border-white/5 group-hover:shadow-xl transition-shadow relative">
-                         <img src={album.coverUrl} className="w-full h-full object-cover" loading="lazy" />
+                         <Artwork src={album.coverUrl} size={170} alt={album.title} className="w-full h-full object-cover" />
                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <Play size={32} fill="white" className="text-white drop-shadow-lg" />
                          </div>

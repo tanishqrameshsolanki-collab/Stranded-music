@@ -1,4 +1,5 @@
 import React from 'react';
+import Artwork from './Artwork';
 
 interface MotionArtworkProps {
   coverUrl: string;
@@ -10,9 +11,11 @@ interface MotionArtworkProps {
 const MotionArtwork: React.FC<MotionArtworkProps> = ({ coverUrl, motionUrl, isPlaying, className = '' }) => {
   return (
     <div className={`relative overflow-hidden ${className} shadow-2xl`}>
-      <img 
-        src={coverUrl} 
-        alt="Album Art" 
+      <Artwork
+        src={coverUrl}
+        size={300}
+        eager
+        alt="Album Art"
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying && motionUrl ? 'opacity-0' : 'opacity-100'}`}
       />
       {motionUrl && (
@@ -22,6 +25,7 @@ const MotionArtwork: React.FC<MotionArtworkProps> = ({ coverUrl, motionUrl, isPl
           loop
           muted
           playsInline
+          preload="metadata"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
         />
       )}

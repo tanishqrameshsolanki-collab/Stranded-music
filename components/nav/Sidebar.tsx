@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, LayoutGrid, Users, Clock, Mic2, Disc, Music, Plus, Search as SearchIcon, ListMusic } from 'lucide-react';
+import { Home, LayoutGrid, Users, Clock, Mic2, Disc, Music, Plus, Search as SearchIcon, ListMusic, LucideIcon } from 'lucide-react';
 import { Tab } from '../../types';
 
 interface SidebarProps {
@@ -8,9 +8,9 @@ interface SidebarProps {
   onTabChange: (tab: Tab) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
+const Sidebar: React.FC<SidebarProps> = React.memo(({ activeTab, onTabChange }) => {
   return (
-    <div className="w-full h-full flex flex-col pt-6 pb-4 px-3 bg-[#1e1e1e]/60 backdrop-blur-xl border-r border-white/5 select-none">
+    <div className="w-full h-full flex flex-col pt-6 pb-4 px-3 bg-[#1e1e1e] border-r border-white/5 select-none">
       
       {/* Apple Music Header / Search */}
       <div className="mb-6 px-2 mt-2">
@@ -101,9 +101,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
       </div>
     </div>
   );
-};
+});
 
-const SidebarItem: React.FC<{ active: boolean; onClick: () => void; icon: any; label: string; isPlaylist?: boolean }> = ({ active, onClick, icon: Icon, label, isPlaylist }) => (
+const SidebarItem: React.FC<{ active: boolean; onClick: () => void; icon: LucideIcon; label: string; isPlaylist?: boolean }> = ({ active, onClick, icon: Icon, label, isPlaylist }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center space-x-2.5 px-3 py-[5px] rounded-md transition-all duration-200 group ${

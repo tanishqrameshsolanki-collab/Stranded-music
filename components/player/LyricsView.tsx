@@ -1,24 +1,28 @@
-
 import React, { useEffect, useRef } from 'react';
 import { LyricLine } from '../../types';
 import { triggerHaptic } from '../../utils';
+import { useProgress } from '../../services/progress';
 
 interface LyricsViewProps {
   lyrics?: LyricLine[];
-  currentTime: number;
   onSeek?: (time: number) => void;
 }
 
-const LyricsView: React.FC<LyricsViewProps> = ({ lyrics, currentTime, onSeek }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+const findActiveIndex = (lyrics: LyricLine[], currentTime: number) => {
+  // Lines are sorted by time; binary search for the last line that has started.
+  let lo = 0, hi = lyrics.length - 1, ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (lyrics[mid].time <= currentTime) { ans = mid; lo = mid + 1; } else { hi = mid - 1; }
+  }
+  return ans;
+};
 
-  // Find active line index
-  const activeIndex = lyrics 
-    ? lyrics.findIndex((line, i) => {
-        const nextLine = lyrics[i + 1];
-        return currentTime >= line.time && (!nextLine || currentTime < nextLine.time);
-      })
-    : -1;
+const LyricsView: React.FC<LyricsViewProps> = ({ lyrics, onSeek }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { currentTime } = useProgress();
+
+  const activeIndex = lyrics && lyrics.length ? findActiveIndex(lyrics, currentTime) : -1;
 
   useEffect(() => {
     if (activeIndex !== -1 && containerRef.current) {
@@ -36,19 +40,19 @@ const LyricsView: React.FC<LyricsViewProps> = ({ lyrics, currentTime, onSeek }) 
   );
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="flex flex-col space-y-8 px-8 py-24 overflow-y-auto h-full no-scrollbar mask-gradient"
     >
       {lyrics.map((line, index) => {
         const isActive = index === activeIndex;
         const isPast = index < activeIndex;
-        
+
         return (
-          <p 
+          <p
             key={index}
-            className={`text-2xl md:text-4xl font-bold transition-all duration-500 ease-out origin-left cursor-pointer select-none active:opacity-60
-              ${isActive ? 'text-white scale-100 blur-0' : 'text-white/40 scale-95 blur-[0.5px] hover:text-white/60'}
+            className={`text-2xl md:text-4xl font-bold transition-[color,transform,opacity] duration-500 ease-out origin-left cursor-pointer select-none active:opacity-60
+              ${isActive ? 'text-white scale-100' : 'text-white/40 scale-95 hover:text-white/60'}
               ${isPast ? 'text-white/20' : ''}
             `}
             onClick={() => {

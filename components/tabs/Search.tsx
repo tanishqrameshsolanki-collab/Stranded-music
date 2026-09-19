@@ -1,11 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchResults, Track } from '../../types';
 import { triggerHaptic } from '../../utils';
-import { musicApi } from '../../services/api';
+import { musicApi, isAbortError } from '../../services/api';
 import { usePlayerStore, useUIStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
+
+const EMPTY_RESULTS: SearchResults = { tracks: [], artists: [], albums: [] };
+const SEARCH_DEBOUNCE_MS = 300;
 
 const CATEGORIES = [
   { id: 'pop', name: 'Pop', image: 'https://picsum.photos/id/10/300/200', color: 'bg-pink-500' },
@@ -19,31 +23,38 @@ const CATEGORIES = [
 ];
 
 const Search: React.FC = () => {
-  const { playTrack } = usePlayerStore();
-  const { setView } = useUIStore();
+  const playTrack = usePlayerStore(s => s.playTrack);
+  const setView = useUIStore(s => s.setView);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResults>({ tracks: [], artists: [], albums: [] });
+  const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS);
   const [loading, setLoading] = useState(false);
   const [absorbingTrack, setAbsorbingTrack] = useState<{ id: string, x: number, y: number, cover: string } | null>(null);
+  const absorbTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Debounce → cancel previous → fetch → only the newest request may write results.
   useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (query.trim()) {
-        setLoading(true);
-        try {
-          const data = await musicApi.search(query);
-          setResults(data);
-        } catch (error) {
-          // Silent fail
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setResults({ tracks: [], artists: [], albums: [] });
+    const term = query.trim();
+    if (!term) {
+      setResults(EMPTY_RESULTS);
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await musicApi.search(term, controller.signal);
+        if (!controller.signal.aborted) setResults(data);
+      } catch (error) {
+        if (!isAbortError(error)) console.error('Search failed', error);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
+
+  useEffect(() => () => { if (absorbTimer.current) clearTimeout(absorbTimer.current); }, []);
 
   const handleTrackClick = (e: React.MouseEvent, track: Track) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -54,7 +65,8 @@ const Search: React.FC = () => {
       cover: track.album.coverUrl
     });
     
-    setTimeout(() => setAbsorbingTrack(null), 800);
+    if (absorbTimer.current) clearTimeout(absorbTimer.current);
+    absorbTimer.current = setTimeout(() => setAbsorbingTrack(null), 800);
     playTrack(track);
   };
 
@@ -63,13 +75,12 @@ const Search: React.FC = () => {
       <AnimatePresence>
         {absorbingTrack && (
           <motion.div
-            initial={{ left: absorbingTrack.x - 24, top: absorbingTrack.y - 24, scale: 1, opacity: 1 }}
-            animate={{ left: "50%", top: 20, scale: 0.1, opacity: 0 }}
+            initial={{ x: absorbingTrack.x - 24, y: absorbingTrack.y - 24, scale: 1, opacity: 1 }}
+            animate={{ x: window.innerWidth / 2 - 24, y: 20, scale: 0.1, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 25, duration: 0.6 }}
-            className="fixed w-12 h-12 rounded-xl overflow-hidden z-[200] border-2 border-white shadow-2xl pointer-events-none"
-            style={{ marginLeft: -24 }}
+            className="fixed top-0 left-0 w-12 h-12 rounded-xl overflow-hidden z-[200] border-2 border-white shadow-2xl pointer-events-none will-change-transform"
           >
-            <img src={absorbingTrack.cover} className="w-full h-full object-cover" />
+            <Artwork src={absorbingTrack.cover} size={48} eager className="w-full h-full object-cover" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -106,7 +117,7 @@ const Search: React.FC = () => {
                       {CATEGORIES.map((cat) => (
                         <div key={cat.id} className={`h-28 rounded-lg relative overflow-hidden cursor-pointer ${cat.color} hover:opacity-90 active:scale-[0.98] transition-all`} onClick={() => triggerHaptic('light')}>
                           <span className="absolute bottom-3 left-3 font-bold text-white text-[15px] z-10 shadow-black drop-shadow-md">{cat.name}</span>
-                          <img src={cat.image} className="absolute right-0 bottom-0 w-16 h-16 rotate-[25deg] translate-x-3 translate-y-3 shadow-lg rounded-sm" alt={cat.name}/>
+                          <img src={cat.image} width={64} height={64} loading="lazy" decoding="async" className="absolute right-0 bottom-0 w-16 h-16 rotate-[25deg] translate-x-3 translate-y-3 shadow-lg rounded-sm" alt={cat.name}/>
                         </div>
                       ))}
                     </div>
@@ -126,8 +137,8 @@ const Search: React.FC = () => {
                            </div>
                            <div className="flex flex-col bg-[#2c2c2e] rounded-xl overflow-hidden">
                               {results.tracks.slice(0, 5).map((track, i) => (
-                                <div key={track.id} onClick={(e) => handleTrackClick(e, track)} className={`flex items-center p-3 cursor-pointer hover:bg-white/5 active:bg-white/10 ${i !== results.tracks.length - 1 ? 'border-b border-white/5' : ''}`}>
-                                    <img src={track.album?.coverUrl} className="w-12 h-12 rounded-[4px] shadow-sm mr-3 object-cover" />
+                                <div key={track.id} onClick={(e) => handleTrackClick(e, track)} className={`flex items-center p-3 cursor-pointer hover:bg-white/5 active:bg-white/10 ${i !== Math.min(results.tracks.length, 5) - 1 ? 'border-b border-white/5' : ''}`}>
+                                    <Artwork src={track.album?.coverUrl} size={48} alt={track.title} className="w-12 h-12 rounded-[4px] shadow-sm mr-3 object-cover" />
                                     <div className="flex-1 min-w-0">
                                         <h4 className="text-white text-[16px] font-medium truncate">{track.title}</h4>
                                         <p className="text-gray-400 text-[14px] truncate">{track.artist?.name}</p>
@@ -145,7 +156,7 @@ const Search: React.FC = () => {
                               {results.artists.map((artist) => (
                                 <div key={artist.id} className="flex flex-col items-center w-28 shrink-0 cursor-pointer" onClick={() => setView({ type: 'artist', id: artist.id })}>
                                    <div className="w-24 h-24 rounded-full overflow-hidden bg-[#333] mb-2 border border-white/10">
-                                       {artist.image ? <img src={artist.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold text-xl">{artist.name[0]}</div>}
+                                       {artist.image ? <Artwork src={artist.image} size={96} alt={artist.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold text-xl">{artist.name[0]}</div>}
                                    </div>
                                    <span className="text-white text-[14px] font-medium truncate w-full text-center">{artist.name}</span>
                                 </div>

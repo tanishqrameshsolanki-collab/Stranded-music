@@ -264,11 +264,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
                     initAudioContext();
                     audioCtx?.resume();
 
-                    if (!fadeGain(get().volume)) {
-                        audio.volume = get().volume;
-                    } else if (gainNode && audioCtx) {
+                    if (gainNode && audioCtx) {
+                        gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
                         gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
                         gainNode.gain.linearRampToValueAtTime(get().volume, audioCtx.currentTime + FADE_SECONDS);
+                    } else {
+                        audio.volume = get().volume;
                     }
 
                     await audio.play();

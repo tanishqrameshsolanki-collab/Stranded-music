@@ -15,6 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/38b82b53-e0ba-4ca1-9774-adbe0
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create an empty `.env.local` (the dev server loads it). Optionally set `YOUTUBE_API_KEY` to use the official YouTube Data API instead of scraping for track lookup.
 3. Run the app:
    `npm run dev`
+
+Other scripts: `npm run build`, `npm run preview`, `npm run typecheck`.

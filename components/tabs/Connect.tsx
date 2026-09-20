@@ -3,15 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Play, Plus, Users, Mic2, MessageCircle, MoreHorizontal, Radio, Heart, Share2, Music, Headphones, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MOCK_TRACKS } from '../../constants';
-import { User, Island, Post, Track } from '../../types';
+import { User, Island, Post } from '../../types';
 import { triggerHaptic } from '../../utils';
 import { authService, partyService } from '../../services/supabase';
-import { usePlayerStore } from '../../services/store';
+import { usePlayerStore, useUIStore } from '../../services/store';
 
 
-interface ConnectProps {
-    onStartParty?: (hostUser: User) => void;
-}
 
 
 // --- MOCK DATA FOR SOCIAL FEATURES ---
@@ -65,7 +62,7 @@ const FEED_POSTS: Post[] = [
 
 // --- COMPONENTS ---
 
-const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePartyId }) => {
+const Connect: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'friends' | 'discover'>('friends');
   const [user, setUser] = useState<User | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -73,25 +70,33 @@ const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePart
   const [joinError, setJoinError] = useState('');
 
   const [parties, setParties] = useState<any[]>([]);
-  const { startParty, joinParty, activeParty, isHost } = usePlayerStore();
-
-  const loadData = async () => {
-      const u = await authService.getUser();
-      if (u) {
-          setUser({
-              id: u.id,
-              name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'You',
-              avatar: u.user_metadata?.avatar_url || 'https://i.pravatar.cc/150?u=me'
-          });
-      }
-      const active = await partyService.getActiveParties();
-      setParties(active);
-  };
+  const startParty = usePlayerStore(s => s.startParty);
+  const joinParty = usePlayerStore(s => s.joinParty);
+  const activeParty = usePlayerStore(s => s.activeParty);
+  const isHost = usePlayerStore(s => s.isHost);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
+    let cancelled = false;
+    authService.getUser().then(u => {
+      if (cancelled || !u) return;
+      setUser({
+          id: u.id,
+          name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'You',
+          avatar: u.user_metadata?.avatar_url || 'https://i.pravatar.cc/150?u=me'
+      });
+    });
+
+    // Poll the party list, but not while the tab is hidden.
+    const refreshParties = async () => {
+      if (document.hidden) return;
+      const active = await partyService.getActiveParties();
+      if (!cancelled) setParties(active);
+    };
+    refreshParties();
+    const interval = setInterval(refreshParties, 30000);
+    const onVisible = () => { if (!document.hidden) refreshParties(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
 
@@ -218,9 +223,7 @@ const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePart
                                                   listeners: [],
                                                   messages: []
                                               });
-                                              import('../../services/store').then(({ useUIStore }) => {
-                                                  useUIStore.getState().setPartyRoomOpen(true);
-                                              });
+                                              useUIStore.getState().setPartyRoomOpen(true);
                                           }}
                                           className="bg-white text-black font-bold text-[13px] px-5 py-2 rounded-full hover:bg-gray-100 transition-colors"
                                        >
@@ -251,9 +254,7 @@ const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePart
                                            listeners: [],
                                            messages: []
                                        });
-                                       import('../../services/store').then(({ useUIStore }) => {
-                                           useUIStore.getState().setPartyRoomOpen(true);
-                                       });
+                                       useUIStore.getState().setPartyRoomOpen(true);
                                    } else {
                                        setJoinError('No party found with that code');
                                        setTimeout(() => setJoinError(''), 3000);
@@ -296,9 +297,7 @@ const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePart
                               if (user) {
                                   triggerHaptic('medium');
                                   startParty(user);
-                                  import('../../services/store').then(({ useUIStore }) => {
-                                      useUIStore.getState().setPartyRoomOpen(true);
-                                  });
+                                  useUIStore.getState().setPartyRoomOpen(true);
                               }
                           }}
                           className="w-full mt-6 flex items-center justify-center space-x-2 bg-[#242426] py-3.5 rounded-xl text-[#FA233B] font-medium hover:bg-[#2C2C2E] transition-colors text-[15px] active:scale-[0.98]"
@@ -318,9 +317,7 @@ const Connect: React.FC<ConnectProps> = ({ onStartParty, onJoinParty, activePart
                            </div>
                            <button 
                                 onClick={() => {
-                                    import('../../services/store').then(({ useUIStore }) => {
-                                        useUIStore.getState().setPartyRoomOpen(true);
-                                    });
+                                    useUIStore.getState().setPartyRoomOpen(true);
                                 }}
                                 className="mt-4 text-[12px] text-[#FA233B] font-bold uppercase tracking-wider hover:opacity-80"
                            >

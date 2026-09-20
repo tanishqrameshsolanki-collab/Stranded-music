@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Loader2, Mic2, Users } from 'lucide-react';
 import { Track } from '../../types';
 import { triggerHaptic } from '../../utils';
+import Artwork from '../ui/Artwork';
 
 interface DynamicIslandProps {
   track: Track | null;
@@ -16,7 +17,7 @@ interface DynamicIslandProps {
   isPartyActive?: boolean;
 }
 
-const DynamicIsland: React.FC<DynamicIslandProps> = ({ 
+const DynamicIsland: React.FC<DynamicIslandProps> = React.memo(({ 
   track, 
   isPlaying, 
   isLoading, 
@@ -71,7 +72,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({
         whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
       >
         <div 
-          className="absolute inset-0 opacity-20 blur-xl pointer-events-none"
+          className="absolute inset-0 opacity-20 pointer-events-none"
           style={{ backgroundColor: track.album.colors.primary }}
         />
 
@@ -89,9 +90,9 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   {[0, 1, 2].map(i => (
                     <motion.div
                       key={i}
-                      animate={{ height: [4, 12, 4] }}
+                      animate={{ scaleY: [0.33, 1, 0.33] }}
                       transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.1 }}
-                      className="w-1 bg-[#FA233B] rounded-full"
+                      className="w-1 h-3 origin-center bg-[#FA233B] rounded-full"
                     />
                   ))}
                 </div>
@@ -109,7 +110,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   layoutId="island-art"
                   className="w-14 h-14 rounded-xl overflow-hidden shadow-lg border border-white/10"
                 >
-                  <img src={track.album.coverUrl} className="w-full h-full object-cover" />
+                  <Artwork src={track.album.coverUrl} size={56} eager alt={track.title} className="w-full h-full object-cover" />
                 </motion.div>
 
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -162,16 +163,16 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({
                   animate={isPlaying ? { rotate: 360 } : {}}
                   transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                 >
-                  <img src={track.album.coverUrl} className="w-full h-full object-cover" />
+                  <Artwork src={track.album.coverUrl} size={28} eager alt={track.title} className="w-full h-full object-cover" />
                 </motion.div>
 
                 <div className="flex items-center space-x-[2.5px] pr-1">
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      animate={isPlaying ? { height: [4, 12, 6, 14, 4] } : { height: 4 }}
-                      transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
-                      className={`w-[3px] rounded-full ${i === 1 ? 'bg-[#FA233B]' : 'bg-[#3B82F6]'}`}
+                      animate={isPlaying ? { scaleY: [0.3, 0.85, 0.45, 1, 0.3] } : { scaleY: 0.3 }}
+                      transition={isPlaying ? { repeat: Infinity, duration: 0.8, delay: i * 0.15 } : { duration: 0.2 }}
+                      className={`w-[3px] h-[14px] origin-center rounded-full ${i === 1 ? 'bg-[#FA233B]' : 'bg-[#3B82F6]'}`}
                     />
                   ))}
                 </div>
@@ -182,6 +183,6 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({
       </motion.div>
     </div>
   );
-};
+});
 
 export default DynamicIsland;

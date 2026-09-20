@@ -3,6 +3,7 @@ import React from 'react';
 import { Track } from '../../types';
 import { Play, AlignJustify } from 'lucide-react';
 import { formatTime } from '../../utils';
+import Artwork from '../ui/Artwork';
 
 interface QueueViewProps {
   queue: Track[];
@@ -10,7 +11,7 @@ interface QueueViewProps {
   onPlayTrack: (index: number) => void;
 }
 
-const QueueView: React.FC<QueueViewProps> = ({ queue, currentIndex, onPlayTrack }) => {
+const QueueView: React.FC<QueueViewProps> = React.memo(({ queue, currentIndex, onPlayTrack }) => {
   
   // Split queue into "Now Playing" and "Up Next"
   const history = queue.slice(0, currentIndex);
@@ -26,7 +27,7 @@ const QueueView: React.FC<QueueViewProps> = ({ queue, currentIndex, onPlayTrack 
             {current && current.album && (
                 <div className="mb-6 bg-white/10 rounded-xl p-3 flex items-center border border-white/10">
                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#333] shrink-0 relative">
-                         <img src={current.album.coverUrl} className="w-full h-full object-cover" />
+                         <Artwork src={current.album.coverUrl} size={48} alt={current.title} className="w-full h-full object-cover" />
                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                               <div className="w-4 h-4 rounded-full bg-[#FA233B] animate-pulse" />
                          </div>
@@ -58,7 +59,7 @@ const QueueView: React.FC<QueueViewProps> = ({ queue, currentIndex, onPlayTrack 
                                 </div>
                                 
                                 <div className="w-10 h-10 rounded-[6px] overflow-hidden bg-[#333] shrink-0 mr-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                                    <img src={track.album.coverUrl} className="w-full h-full object-cover" />
+                                    <Artwork src={track.album.coverUrl} size={40} alt={track.title} className="w-full h-full object-cover" />
                                 </div>
                                 
                                 <div className="flex-1 min-w-0">
@@ -92,7 +93,7 @@ const QueueView: React.FC<QueueViewProps> = ({ queue, currentIndex, onPlayTrack 
                                     className="flex items-center p-2 rounded-lg hover:bg-white/5 cursor-pointer"
                                  >
                                      <div className="w-10 h-10 rounded-[6px] overflow-hidden bg-[#333] shrink-0 mr-3 grayscale">
-                                         <img src={track.album.coverUrl} className="w-full h-full object-cover" />
+                                         <Artwork src={track.album.coverUrl} size={40} alt={track.title} className="w-full h-full object-cover" />
                                      </div>
                                      <div className="flex-1 min-w-0">
                                         <p className="text-white/90 font-medium text-[14px] truncate decoration-white/30">{track.title}</p>
@@ -107,6 +108,6 @@ const QueueView: React.FC<QueueViewProps> = ({ queue, currentIndex, onPlayTrack 
        </div>
     </div>
   );
-};
+});
 
 export default QueueView;

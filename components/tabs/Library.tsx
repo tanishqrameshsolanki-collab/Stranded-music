@@ -3,26 +3,26 @@ import React, { useEffect, useState } from 'react';
 import { ChevronRight, WifiOff, Music2, Mic2, Disc, ListMusic, User, Clock, MonitorPlay, Music } from 'lucide-react';
 import { libraryService } from '../../services/supabase';
 import { Track } from '../../types';
+import { usePlayerStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
 
 const Library = () => {
+  const playTrack = usePlayerStore(s => s.playTrack);
   const [savedTracks, setSavedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchLibrary = async () => {
-      try {
-        const tracks = await libraryService.getSavedTracks();
-        setSavedTracks(tracks);
-        setError(null);
-      } catch (err: any) {
+    let cancelled = false;
+    libraryService.getSavedTracks()
+      .then(tracks => { if (!cancelled) { setSavedTracks(tracks); setError(null); } })
+      .catch((err: any) => {
+        if (cancelled) return;
         console.error("Failed to load library", err);
         setError(err.message || "Failed to connect to Supabase");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLibrary();
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -77,9 +77,9 @@ const Library = () => {
               {savedTracks.map(track => {
                 if (!track || !track.album) return null;
                 return (
-                  <div key={track.id} className="flex flex-col cursor-pointer group active:opacity-75 transition-opacity">
+                  <div key={track.id} onClick={() => playTrack(track, savedTracks)} className="flex flex-col cursor-pointer group active:opacity-75 transition-opacity">
                      <div className="aspect-square bg-[#222] rounded-[8px] overflow-hidden shadow-sm mb-2 relative border border-white/5 group-hover:shadow-md transition-shadow">
-                        <img src={track.album.coverUrl} className="w-full h-full object-cover" alt={track.album.title} />
+                        <Artwork src={track.album.coverUrl} size={200} alt={track.album.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                      </div>
                      <div>

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Play, Shuffle, ChevronRight, MoreHorizontal } from 'lucide-react';
-import { musicApi } from '../../services/api';
-import { Artist, Track, Album } from '../../types';
+import { musicApi, isAbortError } from '../../services/api';
+import { Track, Album } from '../../types';
 import { usePlayerStore, useUIStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
 
 interface ArtistDetailProps {
   artistId: string;
@@ -10,26 +11,18 @@ interface ArtistDetailProps {
 }
 
 const ArtistDetail: React.FC<ArtistDetailProps> = ({ artistId, onBack }) => {
-  const { playTrack } = usePlayerStore();
-  const { setView } = useUIStore();
+  const playTrack = usePlayerStore(s => s.playTrack);
+  const setView = useUIStore(s => s.setView);
   const [data, setData] = useState<{ id: string; name: string; image: string; topTracks: Track[]; albums: Album[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await musicApi.getArtistDetails(artistId);
-        if (res.albums && res.albums.length > 0) {
-            res.albums.sort((a, b) => new Date(b.releaseDate || 0).getTime() - new Date(a.releaseDate || 0).getTime());
-        }
-        setData(res);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    const controller = new AbortController();
+    setLoading(true);
+    musicApi.getArtistDetails(artistId, controller.signal)
+      .then(res => { setData(res); setLoading(false); })
+      .catch(e => { if (!isAbortError(e)) { console.error(e); setLoading(false); } });
+    return () => controller.abort();
   }, [artistId]);
 
   if (loading) return (
@@ -53,14 +46,14 @@ const ArtistDetail: React.FC<ArtistDetailProps> = ({ artistId, onBack }) => {
        
        <button 
          onClick={onBack} 
-         className="absolute top-6 left-6 z-40 flex items-center justify-center w-10 h-10 bg-black/40 backdrop-blur-md hover:bg-black/60 rounded-full transition-colors"
+         aria-label="Back" className="absolute top-6 left-6 z-40 flex items-center justify-center w-10 h-10 bg-black/60 hover:bg-black/80 rounded-full transition-colors"
        >
            <ArrowLeft size={20} className="text-white" />
        </button>
 
        {/* Hero Banner Header */}
        <div className="relative w-full h-[60vh] md:h-[50vh] min-h-[350px]">
-           <img src={data.image} alt={data.name} className="absolute inset-0 w-full h-full object-cover" />
+           <Artwork src={data.image} size={600} eager alt={data.name} className="absolute inset-0 w-full h-full object-cover" />
            <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1E] via-[#1C1C1E]/60 to-transparent" />
            <div className="absolute inset-x-0 bottom-0 p-6 md:p-10 flex flex-col md:flex-row md:items-end justify-between">
                
@@ -107,7 +100,7 @@ const ArtistDetail: React.FC<ArtistDetailProps> = ({ artistId, onBack }) => {
                                   <Play size={14} fill="white" className="text-white" />
                                </div>
                                <div className="relative w-12 h-12 shrink-0 mx-3 rounded-[6px] overflow-hidden shadow-sm bg-[#333]">
-                                   <img src={track.album?.coverUrl || ''} className="w-full h-full object-cover" alt={track.title} />
+                                   <Artwork src={track.album?.coverUrl} size={48} alt={track.title} className="w-full h-full object-cover" />
                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                                </div>
                                <div className="flex-1 min-w-0 pr-4">
@@ -132,7 +125,7 @@ const ArtistDetail: React.FC<ArtistDetailProps> = ({ artistId, onBack }) => {
                         onClick={() => setView({ type: 'album', id: latestAlbum.id })}
                      >
                         <div className="w-full aspect-square rounded-[12px] overflow-hidden bg-[#333] shadow-2xl relative">
-                            <img src={latestAlbum.coverUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={latestAlbum.title} />
+                            <Artwork src={latestAlbum.coverUrl} size={300} alt={latestAlbum.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                             <div className="absolute bottom-4 left-4 w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 <Play fill="white" size={20} className="text-white ml-1" />
                             </div>
@@ -167,7 +160,7 @@ const ArtistDetail: React.FC<ArtistDetailProps> = ({ artistId, onBack }) => {
                          className="cursor-pointer group shrink-0 w-[160px] md:w-auto mr-5 md:mr-0 snap-start active:opacity-75 transition-opacity"
                        >
                            <div className="aspect-square rounded-[10px] overflow-hidden bg-[#333] shadow-lg mb-3 border border-white/5 relative">
-                               <img src={album.coverUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={album.title} />
+                               <Artwork src={album.coverUrl} size={200} alt={album.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                            </div>
                            <h3 className="text-white font-semibold text-[15px] leading-tight mb-0.5 line-clamp-1 group-hover:text-[#FA233B] transition-colors">{album.title}</h3>

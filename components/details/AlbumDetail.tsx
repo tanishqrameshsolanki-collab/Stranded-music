@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Play, Clock, Calendar } from 'lucide-react';
-import { musicApi } from '../../services/api';
+import { musicApi, isAbortError } from '../../services/api';
 import { Album } from '../../types';
 import { formatTime } from '../../utils';
 import { usePlayerStore } from '../../services/store';
+import Artwork from '../ui/Artwork';
 
 interface AlbumDetailProps {
   albumId: string;
@@ -12,22 +13,18 @@ interface AlbumDetailProps {
 }
 
 const AlbumDetail: React.FC<AlbumDetailProps> = ({ albumId, onBack }) => {
-  const { playTrack } = usePlayerStore();
+  const playTrack = usePlayerStore(s => s.playTrack);
+  const currentTrackId = usePlayerStore(s => s.currentTrack?.id);
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await musicApi.getAlbumDetails(albumId);
-        setAlbum(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    const controller = new AbortController();
+    setLoading(true);
+    musicApi.getAlbumDetails(albumId, controller.signal)
+      .then(data => { setAlbum(data); setLoading(false); })
+      .catch(e => { if (!isAbortError(e)) { console.error(e); setLoading(false); } });
+    return () => controller.abort();
   }, [albumId]);
 
   if (loading) return (
@@ -42,12 +39,12 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({ albumId, onBack }) => {
     <div className="h-full overflow-y-auto no-scrollbar bg-[#1C1C1E] animate-fade-in">
        {/* Header */}
        <div className="relative pt-16 pb-8 px-6 md:px-10 flex flex-col md:flex-row items-center md:items-end gap-8 bg-gradient-to-b from-[#2a2a2a] to-[#1C1C1E]">
-          <button onClick={onBack} className="absolute top-4 left-4 p-2 bg-black/20 rounded-full hover:bg-black/40 z-20">
+          <button onClick={onBack} aria-label="Back" className="absolute top-4 left-4 p-2 bg-black/20 rounded-full hover:bg-black/40 z-20">
               <ArrowLeft size={24} className="text-white" />
           </button>
           
           <div className="w-48 h-48 md:w-64 md:h-64 shadow-2xl rounded-lg overflow-hidden shrink-0">
-             <img src={album.coverUrl} className="w-full h-full object-cover" />
+             <Artwork src={album.coverUrl} size={256} eager alt={album.title} className="w-full h-full object-cover" />
           </div>
           
           <div className="flex flex-col text-center md:text-left items-center md:items-start">
@@ -81,7 +78,7 @@ const AlbumDetail: React.FC<AlbumDetailProps> = ({ albumId, onBack }) => {
                     onClick={() => playTrack(track, album.tracks)}
                     className="flex items-center p-3 rounded-lg hover:bg-white/5 cursor-pointer group border-b border-white/5 last:border-0 transition-colors"
                 >
-                    <div className="w-8 text-center text-gray-500 font-medium group-hover:hidden">{i + 1}</div>
+                    <div className={`w-8 text-center font-medium group-hover:hidden ${track.id === currentTrackId ? 'text-[#FA233B]' : 'text-gray-500'}`}>{i + 1}</div>
                     <div className="w-8 text-center hidden group-hover:block text-white">
                         <Play size={16} fill="white" />
                     </div>

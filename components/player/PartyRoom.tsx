@@ -5,14 +5,12 @@ import { X, MessageCircle, Heart, Send, Users, Play, Pause, SkipForward, SkipBac
 import { Track, PartySession } from '../../types';
 import MeshGradient from '../ui/MeshGradient';
 import MotionArtwork from '../ui/MotionArtwork';
-import { formatTime } from '../../utils';
+import Scrubber from './Scrubber';
 
 interface PartyRoomProps {
   session: PartySession;
   track: Track | null;
   isPlaying: boolean;
-  currentTime: number;
-  duration: number;
   isHost: boolean;
   onClose: () => void;
   onTogglePlay: () => void;
@@ -21,7 +19,7 @@ interface PartyRoomProps {
 }
 
 const PartyRoom: React.FC<PartyRoomProps> = ({ 
-  session, track, isPlaying, currentTime, duration, isHost, onClose, onTogglePlay, onSeek, onSendMessage 
+  session, track, isPlaying, isHost, onClose, onTogglePlay, onSeek, onSendMessage 
 }) => {
   const [inputText, setInputText] = useState('');
   const [showChat, setShowChat] = useState(true);
@@ -32,7 +30,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
     if (chatEndRef.current) {
         chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [session.messages]);
+  }, [session.messages.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -107,7 +105,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
         <div className="flex-1 relative z-10 flex flex-col md:flex-row items-stretch w-full max-w-6xl mx-auto px-4 md:px-8 pb-safe gap-4 md:gap-8 min-h-0">
             
             {/* LEFT: Player Area — Glassmorphic Card */}
-            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-4 md:p-8 md:bg-white/5 md:backdrop-blur-3xl md:rounded-[32px] md:border md:border-white/10 md:shadow-[0_20px_60px_rgba(0,0,0,0.4)] flex-shrink-0">
+            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-4 md:p-8 md:bg-white/5 md:rounded-[32px] md:border md:border-white/10 md:shadow-[0_20px_60px_rgba(0,0,0,0.4)] flex-shrink-0">
                 {/* Album Art */}
                 <div className="w-full max-w-[200px] md:max-w-[320px] aspect-square rounded-[20px] md:rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden mb-5 md:mb-6 relative group bg-[#222]">
                     <MotionArtwork coverUrl={track.album.coverUrl} isPlaying={isPlaying} className="w-full h-full" />
@@ -115,7 +113,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
                     {/* Listener Avatar Bubbles */}
                     <div className="absolute top-3 right-3 flex -space-x-2 p-1 rounded-full backdrop-blur-md bg-black/20 border border-white/10">
                         {session.listeners.slice(0, 4).map((u, i) => (
-                            <img key={i} src={u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`} className="w-6 h-6 md:w-7 md:h-7 rounded-full border border-white/20" alt={u.name} />
+                            <img key={i} loading="lazy" decoding="async" width={28} height={28} src={u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`} className="w-6 h-6 md:w-7 md:h-7 rounded-full border border-white/20" alt={u.name} />
                         ))}
                         {session.listeners.length > 4 && (
                             <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-black/40 flex items-center justify-center text-[10px] text-white font-bold border border-white/20">
@@ -132,28 +130,14 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
                 </div>
 
                 {/* Scrubber */}
-                <div className="w-full max-w-[320px] mb-4 md:mb-6">
-                     <div className="relative h-[4px] w-full bg-white/20 rounded-full overflow-hidden mb-1.5 backdrop-blur-sm shadow-inner">
-                        <div 
-                            className="absolute top-0 left-0 h-full bg-white/80 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" 
-                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                        />
-                         {isHost && (
-                            <input 
-                                type="range" 
-                                min={0} 
-                                max={duration || 100} 
-                                value={currentTime}
-                                onChange={(e) => onSeek(Number(e.target.value))}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                        )}
-                    </div>
-                    <div className="flex justify-between text-[10px] font-medium text-white/40 tracking-wide">
-                        <span>{formatTime(currentTime)}</span>
-                        <span>-{formatTime(duration - currentTime)}</span>
-                    </div>
-                </div>
+                <Scrubber
+                    onSeek={onSeek}
+                    disabled={!isHost}
+                    className="w-full max-w-[320px] mb-4 md:mb-6"
+                    trackClassName="h-[4px] bg-white/20 shadow-inner mb-1.5"
+                    fillClassName="bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                    labelClassName="text-[10px] font-medium text-white/40 tracking-wide"
+                />
 
                 {/* Transport Controls */}
                 <div className="w-full max-w-[320px] flex items-center justify-center space-x-10 md:space-x-12 mb-2">
@@ -165,7 +149,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
                     </button>
                     
                     <button 
-                        className={`w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/15 backdrop-blur-3xl flex items-center justify-center hover:bg-white/25 active:scale-95 transition-all shadow-lg border border-white/10 ${!isHost && 'opacity-50 cursor-not-allowed'}`}
+                        className={`w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 active:scale-95 transition-all shadow-lg border border-white/10 ${!isHost && 'opacity-50 cursor-not-allowed'}`}
                         onClick={onTogglePlay}
                         disabled={!isHost}
                     >
@@ -186,7 +170,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
             </div>
 
             {/* RIGHT: Chat Panel — Always Visible */}
-            <div className="flex flex-col w-full md:w-1/2 flex-1 min-h-0 bg-white/5 backdrop-blur-3xl rounded-t-[28px] md:rounded-[32px] border border-white/10 overflow-hidden shadow-2xl">
+            <div className="flex flex-col w-full md:w-1/2 flex-1 min-h-0 bg-black/30 rounded-t-[28px] md:rounded-[32px] border border-white/10 overflow-hidden shadow-2xl">
                 <div className="h-12 md:h-14 border-b border-white/5 flex items-center justify-between px-5 flex-shrink-0 bg-white/5">
                     <div className="flex items-center space-x-2">
                         <MessageCircle size={16} className="text-white/80" />
@@ -210,7 +194,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
                         return (
                             <div key={msg.id} className={`flex items-end space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                                 {!isMe && (
-                                    <img src={msg.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.user.name}`} className="w-6 h-6 rounded-full bg-gray-600 flex-shrink-0" />
+                                    <img loading="lazy" decoding="async" width={24} height={24} src={msg.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.user.name}`} className="w-6 h-6 rounded-full bg-gray-600 flex-shrink-0" />
                                 )}
                                 <div className={`px-3.5 py-2 rounded-[18px] text-[13px] leading-snug max-w-[80%] ${
                                     isMe ? 'bg-[#FF2D55] text-white' : 'bg-white/10 text-white/90 backdrop-blur-md'
@@ -223,7 +207,7 @@ const PartyRoom: React.FC<PartyRoomProps> = ({
                     <div ref={chatEndRef} />
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-3 border-t border-white/5 bg-black/20 backdrop-blur-md flex items-center space-x-2 flex-shrink-0">
+                <form onSubmit={handleSubmit} className="p-3 border-t border-white/5 bg-black/20 flex items-center space-x-2 flex-shrink-0">
                     <input 
                         type="text" 
                         value={inputText}
